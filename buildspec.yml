@@ -4,19 +4,19 @@ version: 0.2
 phases:
   pre_build:
     commands:
-      - echo "Iniciando sesion en Amazon ECR..."
+      - echo 'Iniciando sesion en Amazon ECR...'
       - AWS_ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
       - REPOSITORY_URI=$AWS_ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com/apicalendariolaboral
       - aws ecr get-login-password --region $AWS_DEFAULT_REGION | docker login --username AWS --password-stdin $AWS_ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com
 
   build:
     commands:
-      - echo "Construyendo imagen Docker de ApiCalendarioLaboral..."
+      - echo 'Construyendo imagen Docker de ApiCalendarioLaboral...'
       - docker build -t apicalendariolaboral:latest ./ITM_SE_Proyecto_apiCalendarioLaboral-main/apicalendariolaboral
       - docker tag apicalendariolaboral:latest $REPOSITORY_URI:latest
 
   post_build:
     commands:
-      - echo "Publicando imagen en Amazon ECR..."
+      - echo 'Publicando imagen en Amazon ECR...'
       - docker push $REPOSITORY_URI:latest
-      - echo "Imagen publicada correctamente."
+      - echo 'Imagen publicada correctamente.'
