@@ -7,16 +7,25 @@ phases:
       - 'echo "Iniciando sesion en Amazon ECR..."'
       - AWS_ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
       - REPOSITORY_URI=$AWS_ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com/apicalendariolaboral
+      - IMAGE_TAG=$(echo "$CODEBUILD_RESOLVED_SOURCE_VERSION" | cut -c 1-12)
       - aws ecr get-login-password --region $AWS_DEFAULT_REGION | docker login --username AWS --password-stdin $AWS_ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com
 
   build:
     commands:
-      - 'echo "Construyendo imagen Docker de ApiCalendarioLaboral..."'
+      - 'echo "Construyendo imagen Docker..."'
       - docker build -t apicalendariolaboral:latest ./ITM_SE_Proyecto_apiCalendarioLaboral-main/apicalendariolaboral
       - docker tag apicalendariolaboral:latest $REPOSITORY_URI:latest
+      - docker tag apicalendariolaboral:latest $REPOSITORY_URI:$IMAGE_TAG
 
   post_build:
     commands:
       - 'echo "Publicando imagen en Amazon ECR..."'
       - docker push $REPOSITORY_URI:latest
+      - docker push $REPOSITORY_URI:$IMAGE_TAG
+      - printf '[{"name":"apicalendariolaboral","imageUri":"%s"}]' "$REPOSITORY_URI:$IMAGE_TAG" > imagedefinitions.json
+      - cat imagedefinitions.json
       - 'echo "Imagen publicada correctamente."'
+
+artifacts:
+  files:
+    - imagedefinitions.json
