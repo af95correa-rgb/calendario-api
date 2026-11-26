@@ -1,4 +1,3 @@
-
 version: 0.2
 
 phases:
@@ -6,25 +5,50 @@ phases:
     commands:
       - 'echo "Iniciando sesion en Amazon ECR..."'
       - AWS_ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
-      - REPOSITORY_URI=$AWS_ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com/apicalendariolaboral
+      - ECR_REGISTRY=$AWS_ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com
+      - CALENDARIO_URI=$ECR_REGISTRY/apicalendariolaboral
+      - FESTIVOS_URI=$ECR_REGISTRY/apifestivos
+      - MONGO_URI=$ECR_REGISTRY/bdfestivos
       - IMAGE_TAG=$(echo "$CODEBUILD_RESOLVED_SOURCE_VERSION" | cut -c 1-12)
-      - aws ecr get-login-password --region $AWS_DEFAULT_REGION | docker login --username AWS --password-stdin $AWS_ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com
+      - aws ecr get-login-password --region $AWS_DEFAULT_REGION | docker login --username AWS --password-stdin $ECR_REGISTRY
 
   build:
     commands:
-      - 'echo "Construyendo imagen Docker..."'
+      - 'echo "Construyendo API Calendario Laboral..."'
       - docker build -t apicalendariolaboral:latest ./ITM_SE_Proyecto_apiCalendarioLaboral-main/apicalendariolaboral
-      - docker tag apicalendariolaboral:latest $REPOSITORY_URI:latest
-      - docker tag apicalendariolaboral:latest $REPOSITORY_URI:$IMAGE_TAG
+      - docker tag apicalendariolaboral:latest $CALENDARIO_URI:latest
+      - docker tag apicalendariolaboral:latest $CALENDARIO_URI:$IMAGE_TAG
+
+      - 'echo "Construyendo API Festivos..."'
+      - docker build -t apifestivos:latest ./ITM_SE_Proyecto_apiFestivos-main/apifestivos
+      - docker tag apifestivos:latest $FESTIVOS_URI:latest
+      - docker tag apifestivos:latest $FESTIVOS_URI:$IMAGE_TAG
+
+      - 'echo "Construyendo MongoDB..."'
+      - docker build -t bdfestivos:latest ./mongo-init
+      - docker tag bdfestivos:latest $MONGO_URI:latest
+      - docker tag bdfestivos:latest $MONGO_URI:$IMAGE_TAG
 
   post_build:
     commands:
-      - 'echo "Publicando imagen en Amazon ECR..."'
-      - docker push $REPOSITORY_URI:latest
-      - docker push $REPOSITORY_URI:$IMAGE_TAG
-      - printf '[{"name":"apicalendariolaboral","imageUri":"%s"}]' "$REPOSITORY_URI:$IMAGE_TAG" > imagedefinitions.json
+      - 'test "$CODEBUILD_BUILD_SUCCEEDING" = "1"'
+
+      - 'echo "Publicando API Calendario Laboral..."'
+      - docker push $CALENDARIO_URI:latest
+      - docker push $CALENDARIO_URI:$IMAGE_TAG
+
+      - 'echo "Publicando API Festivos..."'
+      - docker push $FESTIVOS_URI:latest
+      - docker push $FESTIVOS_URI:$IMAGE_TAG
+
+      - 'echo "Publicando MongoDB..."'
+      - docker push $MONGO_URI:latest
+      - docker push $MONGO_URI:$IMAGE_TAG
+
+      - 'echo "Generando archivo de definicion de imagenes..."'
+      - printf '[{"name":"apicalendariolaboral","imageUri":"%s"},{"name":"apifestivos","imageUri":"%s"},{"name":"bdfestivos","imageUri":"%s"}]' "$CALENDARIO_URI:$IMAGE_TAG" "$FESTIVOS_URI:$IMAGE_TAG" "$MONGO_URI:$IMAGE_TAG" > imagedefinitions.json
       - cat imagedefinitions.json
-      - 'echo "Imagen publicada correctamente."'
+      - 'echo "Imagenes publicadas correctamente."'
 
 artifacts:
   files:
